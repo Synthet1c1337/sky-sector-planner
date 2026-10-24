@@ -85,7 +85,7 @@ test('measures to the nearest wall in the band, not just corners', () => {
 });
 
 test('fetch errors are reported, not thrown as crashes', async () => {
-  const one = { fallbackUrls: [] };
+  const one = { fallbackUrls: [], retryDelayMs: 0 };
   await assert.rejects(fetchMappedFeatures(52, -4, { ...one, fetchImpl: mockFetch([[() => true, networkDown]]) }), { code: 'network' });
   await assert.rejects(fetchMappedFeatures(52, -4, { ...one, fetchImpl: mockFetch([[() => true, () => json({}, 429)]]) }), { code: 'rate-limited' });
   await assert.rejects(fetchMappedFeatures(52, -4, { ...one, fetchImpl: mockFetch([[() => true, () => json({}, 500)]]) }), { code: 'bad-response' });
@@ -96,7 +96,7 @@ test('fetch errors are reported, not thrown as crashes', async () => {
 
 test('502 and 503 count as a busy server', async () => {
   for (const status of [502, 503, 504]) {
-    await assert.rejects(fetchMappedFeatures(52, -4, { fallbackUrls: [], fetchImpl: mockFetch([[() => true, () => json({}, status)]]) }), { code: 'rate-limited' });
+    await assert.rejects(fetchMappedFeatures(52, -4, { fallbackUrls: [], retryDelayMs: 0, fetchImpl: mockFetch([[() => true, () => json({}, status)]]) }), { code: 'rate-limited' });
   }
 });
 
@@ -123,6 +123,27 @@ test('does not call the fallback when the main server answers', async () => {
 
 test('reports the last error when every server fails, and skips duplicates', async () => {
   const fetchImpl = mockFetch([[() => true, () => json({}, 503)]]);
-  await assert.rejects(fetchMappedFeatures(52, -4, { url: 'https://a.example', fallbackUrls: ['https://a.example', 'https://b.example'], fetchImpl }), { code: 'rate-limited' });
+  await assert.rejects(fetchMappedFeatures(52, -4, { url: 'https://a.example', fallbackUrls: ['https://a.example', 'https://b.example'], retryDelayMs: 0, fetchImpl }), { code: 'rate-limited' });
+  assert.deepEqual(fetchImpl.calls.map((c) => c.url), ['https://a.example', 'https://b.example', 'https://a.example', 'https://b.example']);
+});
+
+test('tries every server again when all were busy, and reports progress', async () => {
+  let busy = 2;
+  const fetchImpl = mockFetch([[() => true, () => (busy-- > 0 ? json({}, 429) : json({ elements: [] }))]]);
+  const messages = [];
+  const f = await fetchMappedFeatures(52, -4, { url: 'https://a.example', fallbackUrls: ['https://b.example'], retryDelayMs: 0, fetchImpl, onStatus: (m) => messages.push(m) });
+  assert.deepEqual(f, []);
+  assert.equal(fetchImpl.calls.length, 3);
+  assert.ok(messages.some((m) => /backup/.test(m)));
+  assert.ok(messages.some((m) => /Trying again/.test(m)));
+});
+
+test('does not retry after a timeout or outage', async () => {
+  const fetchImpl = mockFetch([[() => true, networkDown]]);
+  await assert.rejects(fetchMappedFeatures(52, -4, { url: 'https://a.example', fallbackUrls: ['https://b.example'], retryDelayMs: 0, fetchImpl }), { code: 'network' });
   assert.equal(fetchImpl.calls.length, 2);
+});
+
+test('the query asks for little time and memory so busy servers accept it', () => {
+  assert.match(buildOverpassQuery(52, -4), /\[timeout:15\]\[maxsize:67108864\]/);
 });

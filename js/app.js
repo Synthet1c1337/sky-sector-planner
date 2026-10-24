@@ -316,10 +316,10 @@ async function loadFeatures() {
   state.featureStatus = 'loading'; renderAssessment();
   btn.disabled = true;
   // The result is shown on the Assessment tab, which is often hidden, so report progress here too.
-  toast('Loading buildings & trees… this can take up to a minute.', 90000);
+  toast('Loading buildings & trees…', 90000);
   try {
     const { lat, lon } = state.location;
-    state.features = await fetchMappedFeatures(lat, lon, { url: settings.overpassUrl || DEFAULT_OVERPASS_URL, radius: 140 });
+    state.features = await fetchMappedFeatures(lat, lon, { url: settings.overpassUrl || DEFAULT_OVERPASS_URL, radius: 140, onStatus: (m) => toast(m, 90000) });
     state.featureOrigin = { lat, lon };
     state.analysis = analyseFeatures(state.features, state.location, state.direction, analysisOptions());
     state.featureStatus = 'loaded';
@@ -451,7 +451,7 @@ function renderAssessment() {
   const a = currentAssessment();
   const loc = state.location; const d = state.direction;
   const featureBlock = (() => {
-    if (state.featureStatus === 'loading') return `<p><span class="spinner" aria-hidden="true"></span> Loading mapped buildings and trees… This can take up to a minute if the map service is busy.</p>`;
+    if (state.featureStatus === 'loading') return `<p><span class="spinner" aria-hidden="true"></span> Loading mapped buildings and trees… This can take a minute or two if the map service is busy.</p>`;
     if (state.featureStatus === 'error') return notice('error', `${esc(state.featureError)} <button type="button" class="btn" id="retry-features">Try again</button>`);
     if (!state.analysis) return `<p>Neighbouring buildings and trees from OpenStreetMap are not loaded.</p><div class="btn-row"><button type="button" class="btn" id="load-features">Load buildings &amp; trees</button></div>`;
     const list = state.analysis.features.filter((f) => f.zone !== 'outside').slice(0, 12);
@@ -716,7 +716,7 @@ function renderSettings() {
       <ul>
         <li><strong>Postcodes:</strong> postcodes.io (open ONS/OS data, centroids only).</li>
         <li><strong>Addresses:</strong> Nominatim / OpenStreetMap. House-level coverage is incomplete in the UK.</li>
-        <li><strong>Buildings &amp; trees:</strong> OpenStreetMap via Overpass. If the server above is busy or slow, a backup server is tried.</li>
+        <li><strong>Buildings &amp; trees:</strong> OpenStreetMap via Overpass. If the server above is busy or slow, a backup server is tried, and busy servers get a second try.</li>
         <li><strong>Map:</strong> OpenStreetMap tiles; satellite imagery by Esri.</li>
       </ul>
       <p class="hint">Not affiliated with or endorsed by Starlink or SpaceX.</p>

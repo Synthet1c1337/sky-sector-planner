@@ -10,7 +10,9 @@ const METRES_PER_LEVEL = 3.0; // planning assumption for building:levels → hei
 
 export function buildOverpassQuery(lat, lon, radius = 120) {
   const r = Math.round(radius);
-  return `[out:json][timeout:25];
+  // A small timeout and memory budget: busy Overpass servers admit queries that ask for
+  // less, and a 140 m lookup needs only a few MB.
+  return `[out:json][timeout:15][maxsize:67108864];
 (
   way["building"](around:${r},${lat},${lon});
   relation["building"](around:${r},${lat},${lon});
@@ -25,18 +27,27 @@ out geom tags;`;
 // Tried in order when the main server is busy, slow or down. Public servers are often
 // overloaded at peak times, so a second one makes a result far more likely.
 export const FALLBACK_OVERPASS_URLS = ['https://overpass.private.coffee/api/interpreter'];
-const OVERPASS_TIMEOUT_MS = 30000; // per server; the query itself asks for at most 25 s
+const OVERPASS_TIMEOUT_MS = 25000; // per server; the query itself asks for at most 15 s
+const BUSY_RETRY_DELAY_MS = 10000; // busy is usually brief, so every server gets one more go after this
 
-export async function fetchMappedFeatures(lat, lon, { fetchImpl = globalThis.fetch?.bind(globalThis), url = DEFAULT_OVERPASS_URL, fallbackUrls = FALLBACK_OVERPASS_URLS, radius = 120, timeoutMs = OVERPASS_TIMEOUT_MS } = {}) {
+export async function fetchMappedFeatures(lat, lon, { fetchImpl = globalThis.fetch?.bind(globalThis), url = DEFAULT_OVERPASS_URL, fallbackUrls = FALLBACK_OVERPASS_URLS, radius = 120, timeoutMs = OVERPASS_TIMEOUT_MS, retryDelayMs = BUSY_RETRY_DELAY_MS, onStatus = () => {} } = {}) {
   const urls = [...new Set([url, ...fallbackUrls].filter(Boolean))];
   const body = `data=${encodeURIComponent(buildOverpassQuery(lat, lon, radius))}`;
   let lastError;
-  for (const u of urls) {
-    try {
-      return parseOverpass(await requestOverpass(fetchImpl, u, body, timeoutMs));
-    } catch (err) {
-      lastError = err;
+  for (let round = 0; round < 2; round++) {
+    const errors = [];
+    for (const [i, u] of urls.entries()) {
+      if (i > 0) onStatus('Map server busy. Trying the backup server…');
+      try {
+        return parseOverpass(await requestOverpass(fetchImpl, u, body, timeoutMs));
+      } catch (err) {
+        lastError = err; errors.push(err);
+      }
     }
+    // Only a busy answer is worth waiting for; timeouts and outages would just double the wait.
+    if (round > 0 || !errors.every((e) => e.code === 'rate-limited')) break;
+    onStatus(`All map servers are busy. Trying again in ${Math.round(retryDelayMs / 1000)} seconds…`);
+    await new Promise((r) => setTimeout(r, retryDelayMs));
   }
   throw lastError;
 }

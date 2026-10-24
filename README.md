@@ -59,7 +59,7 @@ No API keys are needed for the defaults. Never commit keys; custom tile keys ent
 |---|---|---|
 | Postcode → centroid | [postcodes.io](https://postcodes.io) (ONS / OS open data) | Free. Contains OS and Royal Mail data © Crown copyright. Centroids only. |
 | Address search | [Nominatim](https://nominatim.org) (OpenStreetMap) | [Usage policy](https://operations.osmfoundation.org/policies/nominatim/): at most 1 request/second (the app enforces this), no autocomplete, no bulk use. UK house coverage is incomplete. |
-| Buildings and trees | [Overpass API](https://overpass-api.de), falling back to [overpass.private.coffee](https://overpass.private.coffee) | Fair use; heavy users should run their own instance (set its URL in Settings). Each server gets 30 seconds; if it is busy (429/502/503/504), slow or unreachable, the next one is tried. |
+| Buildings and trees | [Overpass API](https://overpass-api.de), falling back to [overpass.private.coffee](https://overpass.private.coffee) | Fair use; heavy users should run their own instance (set its URL in Settings). Each server gets 25 seconds; if it is busy (429/502/503/504), slow or unreachable, the next one is tried. If every server is busy, all are tried once more after 10 seconds. |
 | Map tiles | OpenStreetMap | [Tile policy](https://operations.osmfoundation.org/policies/tiles/): light use only. For a team, use a commercial provider through **Settings → Custom tile URL**. |
 | Satellite | Esri World Imagery | Attribution required. Commercial use needs an ArcGIS account. Check before rolling out to a company. |
 
