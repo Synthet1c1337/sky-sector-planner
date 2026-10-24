@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { parseOverpass, parseHeight, analyseFeatures, buildOverpassQuery, fetchMappedFeatures } from '../js/obstructions.js';
 import { estimateDirection } from '../js/direction.js';
 import { destinationPoint } from '../js/geo.js';
-import { mockFetch, json, networkDown } from './helpers.mjs';
+import { mockFetch, json, badJson, networkDown } from './helpers.mjs';
 
 const P = { lat: 52.4153, lon: -4.0829, accuracy: 'installer-placed' };
 const D = estimateDirection(P);
@@ -85,8 +85,44 @@ test('measures to the nearest wall in the band, not just corners', () => {
 });
 
 test('fetch errors are reported, not thrown as crashes', async () => {
-  await assert.rejects(fetchMappedFeatures(52, -4, { fetchImpl: mockFetch([[() => true, networkDown]]) }), { code: 'network' });
-  await assert.rejects(fetchMappedFeatures(52, -4, { fetchImpl: mockFetch([[() => true, () => json({}, 429)]]) }), { code: 'rate-limited' });
-  const ok = await fetchMappedFeatures(52, -4, { fetchImpl: mockFetch([[() => true, () => json({ elements: [] })]]) });
+  const one = { fallbackUrls: [] };
+  await assert.rejects(fetchMappedFeatures(52, -4, { ...one, fetchImpl: mockFetch([[() => true, networkDown]]) }), { code: 'network' });
+  await assert.rejects(fetchMappedFeatures(52, -4, { ...one, fetchImpl: mockFetch([[() => true, () => json({}, 429)]]) }), { code: 'rate-limited' });
+  await assert.rejects(fetchMappedFeatures(52, -4, { ...one, fetchImpl: mockFetch([[() => true, () => json({}, 500)]]) }), { code: 'bad-response' });
+  await assert.rejects(fetchMappedFeatures(52, -4, { ...one, fetchImpl: mockFetch([[() => true, () => badJson()]]) }), { code: 'bad-response' });
+  const ok = await fetchMappedFeatures(52, -4, { ...one, fetchImpl: mockFetch([[() => true, () => json({ elements: [] })]]) });
   assert.deepEqual(ok, []);
+});
+
+test('502 and 503 count as a busy server', async () => {
+  for (const status of [502, 503, 504]) {
+    await assert.rejects(fetchMappedFeatures(52, -4, { fallbackUrls: [], fetchImpl: mockFetch([[() => true, () => json({}, status)]]) }), { code: 'rate-limited' });
+  }
+});
+
+test('a server that never answers times out', async () => {
+  const hang = (url, init) => new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))));
+  await assert.rejects(fetchMappedFeatures(52, -4, { fallbackUrls: [], timeoutMs: 20, fetchImpl: mockFetch([[() => true, hang]]) }), { code: 'timeout' });
+});
+
+test('falls back to the next server when the main one fails', async () => {
+  const fetchImpl = mockFetch([
+    [(u) => u.startsWith('https://main.example'), () => json({}, 502)],
+    [(u) => u.startsWith('https://backup.example'), () => json({ elements: [{ type: 'node', id: 1, lat: 52, lon: -4, tags: { natural: 'tree' } }] })],
+  ]);
+  const f = await fetchMappedFeatures(52, -4, { url: 'https://main.example/api', fallbackUrls: ['https://backup.example/api'], fetchImpl });
+  assert.equal(f.length, 1);
+  assert.deepEqual(fetchImpl.calls.map((c) => c.url), ['https://main.example/api', 'https://backup.example/api']);
+});
+
+test('does not call the fallback when the main server answers', async () => {
+  const fetchImpl = mockFetch([[() => true, () => json({ elements: [] })]]);
+  await fetchMappedFeatures(52, -4, { url: 'https://main.example/api', fallbackUrls: ['https://backup.example/api'], fetchImpl });
+  assert.equal(fetchImpl.calls.length, 1);
+});
+
+test('reports the last error when every server fails, and skips duplicates', async () => {
+  const fetchImpl = mockFetch([[() => true, () => json({}, 503)]]);
+  await assert.rejects(fetchMappedFeatures(52, -4, { url: 'https://a.example', fallbackUrls: ['https://a.example', 'https://b.example'], fetchImpl }), { code: 'rate-limited' });
+  assert.equal(fetchImpl.calls.length, 2);
 });

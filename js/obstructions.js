@@ -22,21 +22,49 @@ export function buildOverpassQuery(lat, lon, radius = 120) {
 out geom tags;`;
 }
 
-export async function fetchMappedFeatures(lat, lon, { fetchImpl = globalThis.fetch?.bind(globalThis), url = DEFAULT_OVERPASS_URL, radius = 120 } = {}) {
-  let res;
-  try {
-    res = await fetchImpl(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `data=${encodeURIComponent(buildOverpassQuery(lat, lon, radius))}`,
-    });
-  } catch (err) {
-    const e = new Error('Could not reach the map-feature service. Buildings and trees are not shown.'); e.code = 'network'; e.cause = err; throw e;
+// Tried in order when the main server is busy, slow or down. Public servers are often
+// overloaded at peak times, so a second one makes a result far more likely.
+export const FALLBACK_OVERPASS_URLS = ['https://overpass.private.coffee/api/interpreter'];
+const OVERPASS_TIMEOUT_MS = 30000; // per server; the query itself asks for at most 25 s
+
+export async function fetchMappedFeatures(lat, lon, { fetchImpl = globalThis.fetch?.bind(globalThis), url = DEFAULT_OVERPASS_URL, fallbackUrls = FALLBACK_OVERPASS_URLS, radius = 120, timeoutMs = OVERPASS_TIMEOUT_MS } = {}) {
+  const urls = [...new Set([url, ...fallbackUrls].filter(Boolean))];
+  const body = `data=${encodeURIComponent(buildOverpassQuery(lat, lon, radius))}`;
+  let lastError;
+  for (const u of urls) {
+    try {
+      return parseOverpass(await requestOverpass(fetchImpl, u, body, timeoutMs));
+    } catch (err) {
+      lastError = err;
+    }
   }
-  if (res.status === 429 || res.status === 504) { const e = new Error('The map-feature service is busy. Try again in a minute.'); e.code = 'rate-limited'; throw e; }
-  if (!res.ok) { const e = new Error(`The map-feature service returned an error (${res.status}).`); e.code = 'bad-response'; throw e; }
-  const body = await res.json();
-  return parseOverpass(body);
+  throw lastError;
+}
+
+async function requestOverpass(fetchImpl, url, body, timeoutMs) {
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+  try {
+    let res;
+    try {
+      res = await fetchImpl(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+        signal: ctrl?.signal,
+      });
+    } catch (err) {
+      if (err?.name === 'AbortError') { const e = new Error('The map-feature service took too long to answer. Try again in a minute.'); e.code = 'timeout'; e.cause = err; throw e; }
+      const e = new Error('Could not reach the map-feature service. Buildings and trees are not shown.'); e.code = 'network'; e.cause = err; throw e;
+    }
+    // 502/503 are what an overloaded Overpass server or its proxy returns, so treat them like 429/504.
+    if ([429, 502, 503, 504].includes(res.status)) { const e = new Error('The map-feature service is busy. Try again in a minute.'); e.code = 'rate-limited'; throw e; }
+    if (!res.ok) { const e = new Error(`The map-feature service returned an error (${res.status}).`); e.code = 'bad-response'; throw e; }
+    try { return await res.json(); } catch (err) {
+      if (err?.name === 'AbortError') { const e = new Error('The map-feature service took too long to answer. Try again in a minute.'); e.code = 'timeout'; e.cause = err; throw e; }
+      const e = new Error('The map-feature service sent an unreadable response.'); e.code = 'bad-response'; e.cause = err; throw e;
+    }
+  } finally { if (timer) clearTimeout(timer); }
 }
 
 /** Overpass JSON → [{id, kind, name, geometry:[{lat,lon}], height:{metres, source}|null}] */
