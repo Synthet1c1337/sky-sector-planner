@@ -1,0 +1,11 @@
+{
+  "name": "Sky Sector Planner",
+  "short_name": "Sky Sector",
+  "description": "Pre-visit sky-sector planning for Starlink installers in the UK.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0A1220",
+  "theme_color": "#0A1220",
+  "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

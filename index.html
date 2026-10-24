@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0A1220">
+<meta name="description" content="Pre-visit planning for satellite internet installers: locate a UK property, see the likely northern sky sector, review mapped obstructions and save the job.">
+<title>Sky Sector Planner</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app" id="app">
+  <div class="map-wrap">
+    <div id="map" role="application" aria-label="Property map"></div>
+
+    <div class="map-controls map-controls--right" aria-label="Map controls">
+      <div class="north" aria-label="Map is north-up" title="Map is north-up (true north)">
+        <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18"></circle><path d="M20 6 26 22 20 19 14 22Z" class="north-tip"></path><path d="M20 34 14 22 20 25 26 22Z" class="north-tail"></path></svg>
+        <span>N</span>
+      </div>
+      <button type="button" class="map-btn" id="btn-layer" aria-label="Switch map or satellite view" title="Map / satellite">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Z"></path><path d="m3 13 9 5 9-5"></path></svg>
+        <span id="layer-label">Satellite</span>
+      </button>
+      <button type="button" class="map-btn" id="btn-locate" aria-label="Show my location" title="My location">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg>
+        <span>Me</span>
+      </button>
+    </div>
+
+    <div class="mode-bar" role="toolbar" aria-label="Map tools">
+      <button type="button" class="mode-btn" id="mode-place" aria-pressed="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21Z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg>
+        Place roof
+      </button>
+      <button type="button" class="mode-btn" id="mode-mount" aria-pressed="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+        Add mount
+      </button>
+      <button type="button" class="mode-btn" id="btn-features">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l5-4 5 4v11"></path><path d="M14 20v-7h6v7"></path><path d="M2 20h20"></path></svg>
+        <span>Buildings &amp; trees</span>
+      </button>
+    </div>
+    <p class="mode-hint" id="mode-hint" hidden></p>
+
+    <details class="legend" id="legend" open>
+      <summary>Legend</summary>
+      <ul>
+        <li><span class="sw sw-align"></span>Likely alignment band (planning estimate)</li>
+        <li><span class="sw sw-clear"></span>Wider band: tall obstructions worth checking</li>
+        <li><span class="sw sw-geo"></span>Geostationary arc (sky the terminal avoids)</li>
+        <li><span class="sw sw-prop"></span>Property pin</li>
+        <li><span class="sw sw-mount">M</span>Candidate mount</li>
+        <li><span class="sw sw-high"></span>Mapped feature of concern</li>
+        <li><span class="sw sw-feat"></span>Other mapped building / tree</li>
+      </ul>
+      <p>The bands show where to look, not proof of a clear view. Heights, trees and chimneys are often missing from map data. Confirm with the official Starlink app.</p>
+    </details>
+  </div>
+
+  <aside class="panel" id="panel" aria-label="Planner">
+    <button type="button" class="sheet-handle" id="sheet-handle" aria-expanded="false" aria-controls="panel">
+      <span class="sheet-grip" aria-hidden="true"></span><span class="visually-hidden">Expand panel</span>
+    </button>
+
+    <header class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 27 5 8a22 22 0 0 1 22 0Z"></path><circle cx="16" cy="27" r="2.5"></circle></svg>
+      <div>
+        <h1>Sky Sector Planner</h1>
+        <p>Pre-visit planning for Starlink installs · UK</p>
+      </div>
+    </header>
+
+    <form class="search" id="search-form" novalidate>
+      <label for="q" class="visually-hidden">Postcode or address</label>
+      <div class="search-row">
+        <input id="q" name="q" type="search" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Postcode or address" enterkeyhint="search">
+        <button type="submit" class="btn-primary btn-icon" id="search-btn" aria-label="Search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+        </button>
+      </div>
+      <label for="house" class="search-sub">House number or name <span>(optional)</span></label>
+      <input id="house" name="house" type="text" autocomplete="off" placeholder="e.g. 14 or Rose Cottage">
+      <p class="field-msg" id="search-msg" role="status" aria-live="polite"></p>
+    </form>
+
+    <div class="results" id="results" hidden></div>
+
+    <div class="location-card" id="location-card" hidden></div>
+
+    <nav class="tabs" role="tablist" aria-label="Planner sections">
+      <button type="button" role="tab" id="tab-sector" aria-controls="view-sector" aria-selected="true">Sky sector</button>
+      <button type="button" role="tab" id="tab-assess" aria-controls="view-assess" aria-selected="false">Assessment</button>
+      <button type="button" role="tab" id="tab-jobs" aria-controls="view-jobs" aria-selected="false">Jobs <span class="count" id="jobs-count"></span></button>
+      <button type="button" role="tab" id="tab-settings" aria-controls="view-settings" aria-selected="false" aria-label="Settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path><circle cx="9" cy="6" r="2"></circle><circle cx="15" cy="12" r="2"></circle><circle cx="7" cy="18" r="2"></circle></svg>
+      </button>
+    </nav>
+
+    <section class="view" id="view-sector" role="tabpanel" aria-labelledby="tab-sector"></section>
+    <section class="view" id="view-assess" role="tabpanel" aria-labelledby="tab-assess" hidden></section>
+    <section class="view" id="view-jobs" role="tabpanel" aria-labelledby="tab-jobs" hidden></section>
+    <section class="view" id="view-settings" role="tabpanel" aria-labelledby="tab-settings" hidden></section>
+  </aside>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
