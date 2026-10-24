@@ -57,9 +57,9 @@ const notice = (kind, html) => `<div class="notice notice-${kind}">${kind === 'i
 const isPhone = () => window.matchMedia('(max-width: 820px)').matches;
 
 let toastTimer;
-function toast(msg) {
+function toast(msg, ms = 2600) {
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, ms);
 }
 
 function directionOverrides() {
@@ -315,6 +315,8 @@ async function loadFeatures() {
   const btn = $('#btn-features');
   state.featureStatus = 'loading'; renderAssessment();
   btn.disabled = true;
+  // The result is shown on the Assessment tab, which is often hidden, so report progress here too.
+  toast('Loading buildings & trees… this can take up to a minute.', 90000);
   try {
     const { lat, lon } = state.location;
     state.features = await fetchMappedFeatures(lat, lon, { url: settings.overpassUrl || DEFAULT_OVERPASS_URL, radius: 140 });
@@ -325,6 +327,7 @@ async function loadFeatures() {
     toast(`${state.analysis.summary.total} mapped features nearby`);
   } catch (err) {
     state.featureStatus = 'error'; state.featureError = err.message;
+    toast(`Buildings & trees: ${err.message}`, 10000);
   } finally {
     btn.disabled = false;
     renderAll();

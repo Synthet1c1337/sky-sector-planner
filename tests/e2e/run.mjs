@@ -33,6 +33,7 @@ const OVERPASS = { elements: [
 ] };
 
 let offline = false;
+let overpassDown = false;
 async function mockRoutes(context) {
   await context.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
   await context.route(/tile\.openstreetmap\.org|arcgisonline\.com/, (r) => offline ? r.abort() : r.fulfill({ body: TILE, contentType: 'image/png' }));
@@ -45,7 +46,7 @@ async function mockRoutes(context) {
   await context.route(/nominatim\.openstreetmap\.org/, (r) => offline ? r.abort() : r.fulfill({ json: [
     { lat: String(HOUSE.lat), lon: String(HOUSE.lon), display_name: '14, Example Street, Aberystwyth, SY23 1DE, United Kingdom', category: 'place', type: 'house', addresstype: 'place', address: { house_number: '14', postcode: 'SY23 1DE' } },
   ] }));
-  await context.route(/overpass-api\.de/, (r) => r.fulfill({ json: OVERPASS }));
+  await context.route(/overpass-api\.de|overpass\.private\.coffee/, (r) => overpassDown ? r.fulfill({ status: 503, body: 'busy' }) : r.fulfill({ json: OVERPASS }));
 }
 
 const errors = [];
@@ -101,6 +102,18 @@ try {
     await page.click('#tab-assess');
     await page.getByText(/Example House/).first().waitFor();
     await page.locator('.status-banner strong').getByText('Needs on-site verification').waitFor();
+  });
+
+  await step('a failed feature lookup is reported next to the map, not only on the Assessment tab', async () => {
+    overpassDown = true;
+    await page.click('#tab-sector');
+    await page.click('#btn-features');
+    await page.locator('#toast').getByText(/Buildings & trees: The map-feature service is busy/).waitFor();
+    await page.click('#tab-assess');
+    await page.getByRole('button', { name: 'Try again' }).waitFor();
+    overpassDown = false;
+    await page.click('#retry-features');
+    await page.getByText(/Example House/).first().waitFor();
   });
 
   await step('candidate mount can be added', async () => {
