@@ -35,9 +35,8 @@ const state = {
   analysis: null,
   featureStatus: 'idle', // idle | loading | loaded | error
   featureError: '',
-  mounts: [],          // { id, label, lat, lon }
   jobId: null,
-  mode: 'none',        // none | place | mount
+  mode: 'none',        // none | place
   tab: 'sector',
   jobFilter: 'all',
   openJobId: null,
@@ -100,13 +99,11 @@ const layers = {
   clearance: L.layerGroup().addTo(map),
   sector: L.layerGroup().addTo(map),
   features: L.layerGroup().addTo(map),
-  mounts: L.layerGroup().addTo(map),
   property: L.layerGroup().addTo(map),
   me: L.layerGroup().addTo(map),
 };
 
 const propIcon = (approx) => L.divIcon({ className: '', html: `<div class="pin-prop${approx ? ' is-approx' : ''}"></div>`, iconSize: [26, 26], iconAnchor: [13, 13] });
-const mountIcon = (n) => L.divIcon({ className: '', html: `<div class="pin-mount">M${n}</div>`, iconSize: [30, 30], iconAnchor: [15, 15] });
 
 function focusMap(lat, lon, zoom) {
   map.setView([lat, lon], zoom, { animate: false });
@@ -146,12 +143,6 @@ function drawAll() {
   }
   const m = L.marker([loc.lat, loc.lon], { icon: propIcon(approx), draggable: true, title: 'Property (drag onto the roof)', keyboard: true, zIndexOffset: 1000 }).addTo(layers.property);
   m.on('dragend', () => { const p = m.getLatLng(); placeProperty(p.lat, p.lng); });
-
-  state.mounts.forEach((mt, i) => {
-    const mk = L.marker([mt.lat, mt.lon], { icon: mountIcon(i + 1), draggable: true, title: `Mount M${i + 1}` }).addTo(layers.mounts);
-    mk.on('dragend', () => { const p = mk.getLatLng(); mt.lat = p.lat; mt.lon = p.lng; renderAssessment(); });
-    mk.bindPopup(() => `<strong>M${i + 1}</strong> ${esc(mt.label || '')}<br><span class="mono">${mt.lat.toFixed(6)}, ${mt.lon.toFixed(6)}</span>`);
-  });
 
   drawFeatures();
 }
@@ -259,7 +250,7 @@ function renderResults() {
 
 function chooseResult(i) {
   const x = state.results.results[i];
-  state.features = null; state.analysis = null; state.featureStatus = 'idle'; state.mounts = []; state.jobId = null;
+  state.features = null; state.analysis = null; state.featureStatus = 'idle'; state.jobId = null;
   setLocation({ lat: x.lat, lon: x.lon, accuracy: x.accuracy, source: x.source, label: x.label, postcode: x.postcode ?? normalisePostcode($('#q').value) ?? '', attribution: x.attribution });
   state.results = null; renderResults();
   if (!isPreciseLocation(x.accuracy)) setMode('place');
@@ -270,27 +261,18 @@ function chooseResult(i) {
 function setMode(mode) {
   state.mode = state.mode === mode ? 'none' : mode;
   $('#mode-place').setAttribute('aria-pressed', String(state.mode === 'place'));
-  $('#mode-mount').setAttribute('aria-pressed', String(state.mode === 'mount'));
   const hint = $('#mode-hint');
   hint.hidden = state.mode === 'none';
-  hint.textContent = state.mode === 'place' ? 'Tap the customer’s roof to place the pin' : state.mode === 'mount' ? 'Tap to add a candidate mount' : '';
+  hint.textContent = state.mode === 'place' ? 'Tap the customer’s roof to place the pin' : '';
   map.getContainer().style.cursor = state.mode === 'none' ? '' : 'crosshair';
 }
 $('#mode-place').addEventListener('click', () => setMode('place'));
-$('#mode-mount').addEventListener('click', () => {
-  if (!state.location) { toast('Find the property first.'); return; }
-  setMode('mount');
-});
 map.on('click', (e) => {
   if (state.mode === 'place') {
     if (!state.location) state.location = { label: 'Pinned property', postcode: '' };
     placeProperty(e.latlng.lat, e.latlng.lng);
     setMode('none');
     toast('Roof position set');
-  } else if (state.mode === 'mount') {
-    state.mounts.push({ id: `m${Date.now()}`, label: '', lat: e.latlng.lat, lon: e.latlng.lng });
-    drawAll(); renderAssessment();
-    toast(`Mount M${state.mounts.length} added`);
   }
 });
 
@@ -442,7 +424,7 @@ function renderSector() {
 }
 
 function currentAssessment() {
-  return buildAssessment({ location: state.location, direction: state.direction, analysis: state.analysis, mountingPositions: state.mounts });
+  return buildAssessment({ location: state.location, direction: state.direction, analysis: state.analysis });
 }
 
 function renderAssessment() {
@@ -480,14 +462,6 @@ function renderAssessment() {
     ${a.concerns.length ? `<div class="block"><h3>Needs attention</h3><ul>${a.concerns.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></div>` : ''}
     <div class="block"><h3>Mapped surroundings</h3>${featureBlock}
       ${a.observations.length ? `<ul>${a.observations.map((o) => `<li>${esc(o)}</li>`).join('')}</ul>` : ''}</div>
-    <div class="block">
-      <h3>Candidate mounting positions</h3>
-      ${state.mounts.length ? `<ul class="mount-list">${state.mounts.map((m, i) => `<li><span class="mount-badge">M${i + 1}</span>
-        <label class="visually-hidden" for="mount-${m.id}">Mount M${i + 1} description</label>
-        <input id="mount-${m.id}" data-mount="${m.id}" value="${esc(m.label)}" placeholder="e.g. gable end, chimney bracket">
-        <button type="button" class="btn-ghost btn-icon" data-remove-mount="${m.id}" aria-label="Remove M${i + 1}">${ICON.x}</button></li>`).join('')}</ul>`
-        : '<p>None yet. Tap <strong>Add mount</strong> and tap the map.</p>'}
-    </div>
     <div class="block"><h3>Verify on site</h3>
       <ul class="checklist">${a.toVerify.map((t, i) => `<li><input type="checkbox" id="verify-${i}"><label for="verify-${i}">${esc(t)}</label></li>`).join('')}</ul></div>
     <div class="block">
@@ -498,12 +472,6 @@ function renderAssessment() {
     </div>`;
   $('#load-features')?.addEventListener('click', loadFeatures);
   $('#retry-features')?.addEventListener('click', loadFeatures);
-  v.querySelectorAll('[data-mount]').forEach((inp) => inp.addEventListener('input', () => {
-    const m = state.mounts.find((x) => x.id === inp.dataset.mount); if (m) m.label = inp.value;
-  }));
-  v.querySelectorAll('[data-remove-mount]').forEach((b) => b.addEventListener('click', () => {
-    state.mounts = state.mounts.filter((x) => x.id !== b.dataset.removeMount); drawAll(); renderAssessment();
-  }));
   $('#save-job').addEventListener('click', saveCurrentJob);
 }
 
@@ -527,7 +495,6 @@ function saveCurrentJob() {
       lat: loc.lat, lon: loc.lon, locationAccuracy: loc.accuracy, locationSource: loc.source,
       direction: directionSnapshot(state.direction),
       assessmentStatus: a.status.id,
-      mountingPositions: state.mounts.map((m) => ({ ...m })),
     });
     state.jobId = saved.id;
     toast(existing ? 'Job updated' : 'Job saved on this device');
@@ -589,7 +556,6 @@ function renderJobDetail(v, job) {
         <dt>Created</dt><dd>${new Date(job.createdAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</dd>
         <dt>Estimate</dt><dd class="mono">${d?.status === 'estimate' ? `${formatBearing(d.alignment.from)}–${formatBearing(d.alignment.to)}` : 'none'}</dd>
         <dt>Method</dt><dd>${esc(d?.method ?? '—')}</dd>
-        <dt>Mounts</dt><dd>${job.mountingPositions.length ? job.mountingPositions.map((m, i) => `M${i + 1} ${esc(m.label || '')}`).join(', ') : 'none'}</dd>
       </dl>
     </div>
     <form class="block" id="job-form">
@@ -602,7 +568,7 @@ function renderJobDetail(v, job) {
         <div class="field"><label for="jf-tilt">Tilt from app (°)</label><input id="jf-tilt" name="observedTilt" type="number" inputmode="decimal" min="0" max="90" step="0.1" value="${job.onSite.observedTilt ?? ''}"></div>
       </div>
       <span class="hint">Recorded bearings improve future estimates near this job (shown in green on the compass).</span>
-      <div class="field"><label for="jf-obs">Obstruction check result</label><textarea id="jf-obs" name="obstructionNotes" placeholder="e.g. App obstruction check clear at M1; oak to NNE blocks M2">${esc(job.onSite.obstructionNotes)}</textarea></div>
+      <div class="field"><label for="jf-obs">Obstruction check result</label><textarea id="jf-obs" name="obstructionNotes" placeholder="e.g. App obstruction check clear on the gable end; oak to NNE blocks the chimney">${esc(job.onSite.obstructionNotes)}</textarea></div>
       <div class="field"><label for="jf-find">Other findings</label><textarea id="jf-find" name="findings">${esc(job.onSite.findings)}</textarea></div>
       <div class="btn-row"><button type="submit" class="btn-primary">Save changes</button></div>
     </form>
@@ -658,7 +624,6 @@ function renderJobDetail(v, job) {
 function openJobOnMap(id) {
   const j = repo.get(id); if (!j || !Number.isFinite(j.lat)) return;
   state.features = null; state.analysis = null; state.featureStatus = 'idle';
-  state.mounts = j.mountingPositions.map((m) => ({ ...m }));
   state.jobId = j.id;
   setLocation({ lat: j.lat, lon: j.lon, accuracy: j.locationAccuracy, source: j.locationSource, label: j.address || j.reference, postcode: j.postcode });
   selectTab('assess');

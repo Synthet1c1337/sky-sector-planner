@@ -116,14 +116,6 @@ try {
     await page.getByText(/Example House/).first().waitFor();
   });
 
-  await step('candidate mount can be added', async () => {
-    await page.click('#mode-mount');
-    const box = await page.locator('#map').boundingBox();
-    await page.mouse.click(box.x + box.width / 2 + 30, box.y + box.height / 2 - 20);
-    await page.locator('.pin-mount').first().waitFor();
-    await page.fill('[data-mount]', 'Gable end, east');
-  });
-
   await step('job saves locally', async () => {
     await page.fill('#job-ref', 'JOB-E2E-1');
     await page.click('#save-job');
@@ -145,7 +137,6 @@ try {
     await page.getByText('Job saved').first().waitFor();
     const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('slp.jobs.v1')));
     assert.equal(stored[0].onSite.observedBearing, 352);
-    assert.equal(stored[0].mountingPositions[0].label, 'Gable end, east');
     assert.equal(stored[0].direction.alignment.from, 335);
     await page.screenshot({ path: `${shots}04-job-detail.png` });
   });

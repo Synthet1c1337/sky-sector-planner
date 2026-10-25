@@ -11,11 +11,11 @@ export const ASSESSMENT_STATUS = Object.freeze({
   INSUFFICIENT: { id: 'insufficient-data', label: 'Insufficient data' },
 });
 
-export function buildAssessment({ location, direction, analysis, mountingPositions = [] }) {
+export function buildAssessment({ location, direction, analysis }) {
   const concerns = [];
   const observations = [];
   const toVerify = [
-    'Run the obstruction check in the official Starlink app at each candidate mount.',
+    'Run the obstruction check in the official Starlink app where you plan to mount the dish.',
     'Confirm the bearing and tilt the Starlink app asks for.',
     'Look for trees, chimneys, aerials and neighbouring roofs in the northern sky that map data does not show.',
     'Check roof condition, fixing surface and cable route to the router.',
@@ -52,8 +52,6 @@ export function buildAssessment({ location, direction, analysis, mountingPositio
     if (s.inClearance === 0) observations.push('No mapped buildings or trees in the northern bands within 120 m. Unmapped trees and roof clutter may still be present.');
     if (s.unknownHeightInSector > 0) concerns.push(`${s.unknownHeightInSector} mapped feature(s) in the northern bands have no height data.`);
   }
-
-  if (!mountingPositions.length) toVerify.unshift('No candidate mounting positions added yet. Add at least one on the map.');
 
   const status = concerns.length ? ASSESSMENT_STATUS.VERIFY : ASSESSMENT_STATUS.PLANNING;
   return { status, reasons: [], concerns, observations, toVerify };

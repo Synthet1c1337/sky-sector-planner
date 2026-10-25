@@ -168,10 +168,6 @@ details.more > div { display: flex; flex-direction: column; gap: 8px; margin-top
 .feature-list { list-style: none; padding: 0 !important; gap: 6px !important; }
 .feature-list li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 10px 12px; border-radius: 10px; background: var(--navy-800); font-size: 14px; }
 .feature-list .meta { color: var(--muted); grid-column: 1 / -1; font-size: 13px; }
-.mount-list { list-style: none; padding: 0 !important; }
-.mount-list li { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--navy-800); }
-.mount-list input { flex: 1; min-width: 0; min-height: 44px; padding: 8px 10px; border-radius: 10px; background: var(--navy-850); border: 1px solid var(--line); }
-.mount-badge { width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--blue); color: var(--navy-950); font: 700 13px var(--font-mono); flex: none; }
 
 /* Forms */
 .field { display: flex; flex-direction: column; gap: 6px; }
@@ -224,7 +220,6 @@ details.more > div { display: flex; flex-direction: column; gap: 8px; margin-top
 .sw-clear { background: rgba(76,141,255,.22); border: 1.5px dashed var(--blue); }
 .sw-geo { height: 0; border-top: 3px dashed var(--amber); border-radius: 0; }
 .sw-prop { width: 14px; height: 14px; border-radius: 50%; background: var(--cyan); border: 3px solid #fff; }
-.sw-mount { width: 18px; height: 18px; border-radius: 50%; background: var(--blue); color: var(--navy-950); }
 .sw-high { background: rgba(242,181,68,.45); border: 2px solid var(--amber); }
 .sw-feat { background: rgba(195,208,228,.25); border: 1.5px solid #9FB0CC; }
 
@@ -240,7 +235,6 @@ details.more > div { display: flex; flex-direction: column; gap: 8px; margin-top
 .leaflet-popup-content { font-size: 14px; margin: 12px 14px; }
 .pin-prop { width: 26px; height: 26px; border-radius: 50%; background: var(--cyan); border: 4px solid #fff; box-shadow: 0 0 0 3px rgba(10,18,32,.6), 0 4px 10px rgba(0,0,0,.5); }
 .pin-prop.is-approx { background: var(--amber); }
-.pin-mount { width: 30px; height: 30px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; color: var(--navy-950); font: 700 12px var(--font-mono); display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 8px rgba(0,0,0,.5); }
 .pin-me { width: 18px; height: 18px; border-radius: 50%; background: #4C8DFF; border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(76,141,255,.3); }
 .geo-label { color: var(--amber); }
 

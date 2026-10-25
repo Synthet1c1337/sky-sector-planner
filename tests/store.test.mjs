@@ -97,7 +97,7 @@ test('report contains the key facts and the official-app warning', () => {
   assert.match(r, /JOB-1042/);
   assert.match(r, /52\.415700, -4\.082500/);
   assert.match(r, /Alignment band: 335° to 025°/);
-  assert.match(r, /M1: Gable end/);
+  assert.doesNotMatch(r, /MOUNTING POSITIONS/);
   assert.match(r, /Bearing shown by Starlink app: 352°/);
   assert.match(r, /official Starlink app must confirm/);
   const none = buildReport(createJob({ reference: 'X', direction: estimateDirection(null) }));

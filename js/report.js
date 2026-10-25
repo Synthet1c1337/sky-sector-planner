@@ -34,10 +34,6 @@ export function buildReport(job, assessment = null) {
   if (assessment) {
     lines.push('', `ASSESSMENT: ${assessment.status.label}`, ...assessment.concerns.map((c) => `! ${c}`), ...assessment.observations.map((o) => `- ${o}`));
   }
-  lines.push('', 'CANDIDATE MOUNTING POSITIONS');
-  if (job.mountingPositions.length) {
-    job.mountingPositions.forEach((m, i) => lines.push(`M${i + 1}: ${m.label || 'unnamed'} · ${fmt(m.lat, 6)}, ${fmt(m.lon, 6)}`));
-  } else lines.push('(none added)');
   lines.push('', 'NOTES', job.notes || '(none)', '', 'ON-SITE FINDINGS');
   const o = job.onSite ?? {};
   lines.push(

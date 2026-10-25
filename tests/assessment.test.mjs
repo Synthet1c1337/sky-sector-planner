@@ -27,7 +27,7 @@ test('unloaded map features need verification', () => {
 
 test('nothing flagged stays a planning estimate, never "suitable"', () => {
   const d = estimateDirection(precise);
-  const a = buildAssessment({ location: precise, direction: d, analysis: analyseFeatures([], precise, d), mountingPositions: [{ lat: 1, lon: 1 }] });
+  const a = buildAssessment({ location: precise, direction: d, analysis: analyseFeatures([], precise, d) });
   assert.equal(a.status.id, 'planning-estimate');
   assert.equal(a.status.label, 'Planning estimate');
   const text = JSON.stringify(a).toLowerCase();
@@ -45,8 +45,8 @@ test('a tall mapped obstruction in the band is a concern', () => {
   assert.ok(a.concerns.some((x) => /Building "Mill" 15 m/.test(x)));
 });
 
-test('reminds the installer to add mounts', () => {
+test('asks for the Starlink app obstruction check first', () => {
   const d = estimateDirection(precise);
   const a = buildAssessment({ location: precise, direction: d, analysis: analyseFeatures([], precise, d) });
-  assert.match(a.toVerify[0], /mounting positions/);
+  assert.match(a.toVerify[0], /obstruction check/);
 });

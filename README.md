@@ -5,7 +5,6 @@ A web app for Starlink installers in the UK, laid out like a map app. Enter a po
 - locate the property, and see how accurate that location is
 - see the **likely sky sector** the terminal will face, drawn as a fan on the map and on a compass
 - load mapped buildings and trees and see which fall in the northern sky
-- add candidate mounting positions
 - get a pre-visit assessment: *Planning estimate*, *Needs on-site verification* or *Insufficient data*
 - save the job with notes, on-site findings and photos, and export a report
 
@@ -37,19 +36,18 @@ Then open the URL on the phone and choose **Add to Home Screen** (iOS Safari: Sh
 3. If it is a postcode centre, tap **Place roof** and tap the customer's roof. The **Satellite** view helps here.
 4. Read the **Sky sector** tab: the sector, confidence, geostationary-arc elevation and how the estimate was made.
 5. Tap **Buildings & trees** to load OpenStreetMap features. Those in the northern bands are measured: distance, bearing, and the angle above an assumed mount height.
-6. Tap **Add mount** to place candidate positions (M1, M2…), then label them in the **Assessment** tab.
-7. Enter a job reference and **Save job**. After the visit, open the job and record the bearing and tilt the Starlink app showed. These recordings refine estimates for future jobs nearby.
+6. Enter a job reference and **Save job**. After the visit, open the job and record the bearing and tilt the Starlink app showed. These recordings refine estimates for future jobs nearby.
 
 ## Tests
 
 ```bash
-npm test             # 60 unit tests, Node's built-in runner, no network
+npm test             # 68 unit tests, Node's built-in runner, no network
 npm run test:e2e     # end-to-end in headless Chromium with every external service mocked
 ```
 
 The unit tests cover postcode validation, geocoding errors (not found, offline, rate limits, bad responses, ambiguity, other-postcode matches), coordinates, bearing normalisation and wrap-around, sector geometry, geostationary-arc maths, uncertainty and insufficient-data states, obstruction classification, assessment rules, and saving, loading, import and export of jobs.
 
-The e2e test (`tests/e2e/run.mjs`) needs Playwright with Chromium. It runs the whole workflow (search, select, sector, features, mount, save, reload, edit, pin placement, offline search, phone layout) and fails on any console error. Screenshots go to `tests/e2e/screenshots/`.
+The e2e test (`tests/e2e/run.mjs`) needs Playwright with Chromium. It runs the whole workflow (search, select, sector, features, save, reload, edit, pin placement, offline search, phone layout) and fails on any console error. Screenshots go to `tests/e2e/screenshots/`.
 
 ## Data providers and terms
 
